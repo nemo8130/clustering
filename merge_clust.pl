@@ -1,194 +1,190 @@
 #!/usr/bin/perl
 
-$filetag = 'topidNld_scf-';
-$Nfiles = 100;
-open (OUT,">scalefree.ldstat");
+open (INP,"<pairs.inp");
+@nel = <INP>;
+foreach (@nel){chomp $_;}
 
-$Nset = 0;
+#@merged = (0, 2, 4, 5, 7, 8, 9, 10, 12, 13, 15, 16, 18, 19);              						# example nodes 
+#@nel = ('0-7', '0-12', '0-15', '0-18', '2-9', '4-5', '5-7', '5-16', '8-10', '13-19');           # example connections
 
-for $i (1..$Nfiles)
+%h = ();
+foreach (@nel)
 {
-    $file = $filetag.$i.'.out';
-#    $pr=`ls -lart $file`;
-#    chomp $pr;
-#    print $pr,"\n";
-    open (INP,"<$file");
-    $arr = 'dat'.$i;
-    @$arr = <INP>;
-    close INP;
-    for $j (0..scalar(@$arr)-1)
-    {
-	chomp $$arr[$j];
-	$nsz[$i][$j] = int(substr($$arr[$j],0,5));
-	$deg[$i][$j] = int(substr($$arr[$j],6,5));
-	$ld[$i][$j] = substr($$arr[$j],12,8);
-	$ld[$i][$j] =~ s/\s//g;
-	$pmot[$i][$j] = substr($$arr[$j],23, );
-	$pmot[$i][$j] =~ s/\s//g;
-#	print "$nsz[$i][$j]  $deg[$i][$j]  $ld[$i][$j]\n";
-    }
-    $Nset = scalar(@$arr);
-}
-
-#print $Nset,"\n";
-
-#goto SKIP;
-#==================== Link Density: Expected, Mean, Std ================
-
-for $j (0..$Nset-1)
-{
-    my $nC2=fact($nsz[1][$j])/(fact(2) * fact($nsz[1][$j]-2));
-    $ld_exp[$j]=($nsz[1][$j]*$deg[1][$j]/2)/$nC2;
-    $lden=0;
-    $ldensq=0;
-    $N=0;
-    for $i (2..$Nfiles)
-    {
-#	print ">>$nsz[$i][$j] $deg[$i][$j]\n";
-	if ($nsz[1][$j]==$nsz[$i][$j] && $deg[1][$j]==$deg[$i][$j])
+chomp $_;
+print $_,"\n";
+@col=split(/-/,$_);
+	foreach $c (@col)
 	{
-#	    print "It is a match: $nsz[1][$j] $deg[1][$j]\n";
-	    $lden=$lden+$ld[$i][$j];
-	    $ldensq=$ldensq+($ld[$i][$j])**2;
-	    $N++;
+	$h{$c}++;
 	}
-    }
-    $ld_mean[$j]=$lden/$N;
-    $ld_std[$j]=sqrt(abs(($ldensq/$N)-($ld_mean[$j]**2)));
-    printf OUT "%10.5f  %10.5f  %10.5f\n",$ld_exp[$j],$ld_mean[$j],$ld_std[$j];
 }
+@merged = sort {$a <=> $b} keys %h;
+#@merged = (@merged,22,23,24);
 
+foreach (@merged){print $_,"\n";}
+
+#exit;
+
+
+@cmerged = @merged;
+@fset = @cmerged;
+@red = ();
+$next = $cmerged[0];
+$p = 0;
+@done = ();
+@merclust = ();
+$nc = 0;
+
+#for $k (0..scalar(@cmerged)+1000)
+while (scalar(@fset)>=0 && scalar(@red)>=0)
+{
+@conn = ();
+$flagN = 0;
+$flagN1 = 0;
+$flag = 0;
+#========================== CHECK IF ALREADY CHECKED FOR ========================
+#print "The Leftover set: ";
+        for $rd (@red)
+        {
+#       print "$rd     ";
+                if ($k == $rd)
+                {
+                $flagN = 1;             # already checked
+                }
+        }
+print "\nNext: $next\n";
+        if ($flagN == 0)
+        {
+        print "PROCEEDING FOR $next\n";
+                for $j (0..scalar(@nel)-1)
+                {
+                @hold1 = split(/-/,$nel[$j]);
+                        if ($next == $hold1[0])
+                        {
+                        $con = $hold1[1];
+                        @conn = (@conn,$con);
+                        $flag = 1;
+                        }
+                        elsif ($next == $hold1[1])
+                        {
+                        $con = $hold1[0];
+                        @conn = (@conn,$con);
+                        $flag = 1;
+                        }
+                        else
+                        {
+                        $flag = 0;
+                        }
+                 }
+        print scalar(@conn),"    ",$flag,"\n";
+                if ($flag == 0 || scalar(@conn) >= 1)
+                {
+                print "I am here\n";
+                unshift (@conn,$next);
+                @sconn = sort {$a <=> $b} (@conn);
+                $mer = '';
+                $mer = join('-',@sconn);
+                print $mer,"\n";
+                @collmer = (@collmer,$mer);
+                @red = subtract(\@fset,\@sconn);
+                print scalar(@fset),"   ",scalar(@sconn),"   ",scalar(@red),"\n";
+                print "==========leftover set =======\n";
+                foreach $r (@red){print $r," ";}
+                print "\n============================== $p ", scalar(@sconn),"  $next\n";
+                @conn = ();
+                @fset = @red;
+#               $next = $sconn[$p+1];
+                @done = (@done,$next);
+                @rest = subtract(\@sconn,\@done);
+                @srest = sort {$a <=> $b} @rest;
+                $next = $srest[0];
+                print "Now do for $next\n";
+                        if ($next eq "")
+                        {
+			$nc++;
+			print "Last cluster does not grow any further\n";
+                        $str1 = join('-',@collmer);
+                        @comp = split(/-/,$str1);
+                        %hh = ();
+                                foreach $cm (@comp)
+                                {
+                                $hh{$cm}++;
+                                }
+                        @comp = sort {$a <=> $b} keys %hh;
+                        $str1 = join('-',@comp);
+			$cll = @comp;
+                        print "The merged cluster is ($nc) : $str1 (Len:$cll)\n";
+                        @merclust = (@merclust,$str1);
+                        @collmer = ();
+			print "FSET:\n";
+			foreach (@fset){print $_,"-";}
+			print "\nCOMP:\n";
+			foreach (@comp){print $_,"-";}
+			print "\n";
+                        @red = subtract(\@fset,\@comp);
+			print "\nRED:\n";
+			foreach (@red){print $_,"-";}
+			print "\n";
+			print "LEN:",scalar(@fset)," ",scalar(@red),"\n";
+                                if (scalar(@red)==0 && scalar(@fset)==0)
+                                {
+                                goto SKIP;
+                                }
+                        print "==========new leftover set =======\n";
+                        foreach $r (@red){print $r," ";}
+                        $next = $red[0];
+                        print "\n============================== $p ", scalar(@sconn),"  $next\n";
+                        }
+			else
+			{
+			print "NEXT WAS $next\n";
+			}
+                $p++;
+                }
+        }
+}
+ 
+ 
 SKIP:
 
-    $i=1;
-    $arr = 'dat'.$i;
+print "\ndone\n";
 
-#$k=0;
-for $k (0..scalar(@$arr)-1)
+#=================================================================================
+
+sub subtract
 {
-$nn=$nsz[1][$k];
-$dd=$deg[1][$k];
-$Nun=0;
-#print "Network parameters: $nn :: $dd\n";
-$umot = 0;
-@matching_pairs = ();
-	for $i (1..$Nfiles)
-	{
-    	$n1=$nsz[$i][$k];
-    	$d1=$deg[$i][$k];
-    	$nom=0;
-    	$flag=0;
-    		for $j (1..$Nfiles)
-    		{
-			if ($i != $j)
-			{
-			$n2=$nsz[$j][$k];
-			$d2=$deg[$j][$k];
-				if (($n1==$n2 && $d1==$d2) && ($n1==$nn && $d1==$dd))
-				{
-#	    			print ">>1>> $pmot[$i][$k]\n";
-#	    			print ">>2>> $pmot[$j][$k]\n";
-	    			@pm1=split(/\=/,$pmot[$i][$k]);
-	    			@pm2=split(/\=/,$pmot[$j][$k]);
-	    			%h1 = ();
-	    			%h2 = ();
-	    				foreach $aa (@pm1)
-	   				{
-#					print $aa,"\n";
-					$h1{$aa}++;
-	    				}
-	    				foreach $bb (@pm2)
-	    				{
-#					print $bb,"\n";
-					$h2{$bb}++;
-	    				}
-	    			@k1 = keys %h1;
-	    			@v1 = values %h1;
-	    			@k2 = keys %h2;
-	    			@v2 = values %h2;
-	    			$nmot1=scalar(@k1);
-	    			$nmot2=scalar(@k2);
-	    
-					if ($nmot1 == $nmot2)
-	    			    	{
-#					print "Match found in the number of nodal motifs: $nmot1 <-> $nmot2\n";
-			    	    	$nmatch = 0;
-					    for $l1 (0..$nmot1-1)
-					    {
-						for $l2 (0..$nmot2-1)
-						{
-							if ($k1[$l1] eq $k2[$l2] && $v1[$l1] == $v2[$l2])
-							{
-#						    	print "Identical combo: $k1[$l1] -> $v1[$l1] :: $k2[$l2] -> $v2[$l2]\n";
-							$nmatch++;
-							}
-						}
-					    }
-#				    print "NMATCH:  $nmatch\n";
-					    if ($nmatch == $nmot1)
-					    {
-						$flag=1;
-						if ($i<$j)
-						{
-#						print "Identical newtork motifs: $pmot[$i][$k] & $pmot[$j][$k]\n";
-#						print "$i-$j\n";
-						@matching_pairs = (@matching_pairs,($i.'-'.$j));
-						}
-					    }
-					    else
-					    {
-						$nom++;
-					    }
-				    	}
-				    	else
-	    				{
-					$nom++;
-#					print "MISSMATCH in the number of nodal motifs:: $nmot1  $nmot2 :: $nn $dd  $n1 $d1  $n2 $d2\n";
-#					print "$pmot[$i][$k]\n";
-#					print "$pmot[$j][$k]\n";
-	    				}
-				}
-			}
-    		}
-    	$mf = ($Nfiles-1)-$nom;
-#    	print "$i ($nn, $dd) :: $nom  $mf\n";
-    		if ($nom == ($Nfiles-1))
-    		{
-#		print "This motif never encountered twice: $pmot[$i][$k]\n";
-		$Nun++;
-    		}
-	}
-#print "$nn  $dd  :: $Nun\n";
-	if (scalar(@matching_pairs) > 0)
-	{
-	open (OUT,">pairs.inp");
-		foreach $a (@matching_pairs)
-		{
-    		print OUT $a,"\n";
-		}	
-	$hmmu = `./merge_clust.pl | grep "The merged cluster" | wc`;      # How many more unique
-	}
-	else
-	{
-	$hmmu=0;
-	}
-$totmot = $hmmu + $Nun;
-printf "%5d %5d %5d : %5d %5d %5d\n",$nn,$dd,$Nfiles,$Nun,$hmmu,$totmot;
+my ($r1,$r2) = @_;
+my @set = @$r1;
+my @subset = @$r2;
+my $i = 0;
+my $j = 0;
+my @diff = ();
+        for $i (0..scalar(@set)-1)
+        {
+        my $flag = 0;
+                for $j (0..scalar(@subset)-1)
+                {
+                        if ($set[$i] == $subset[$j])
+                        {
+                        $flag = 1;
+                        }
+                }
+                if ($flag == 0)
+                {
+                @diff = (@diff,$set[$i]);
+                }
+        }
+return @diff;
+@diff = ();
 }
 
+                        
 
-sub fact 
-{
-    my ($num) = @_;
-#    print $num,"\n";
-    my $factnum = 1;
-    for ($i=$num;$i>=1;$i--)
-    {
-	$factnum = $factnum*$i;
-    }
-    return $factnum;
-}
+## Main Output : 
 
+#The merged cluster (1) is : 0-4-5-7-12-15-16-18
+#The merged cluster (2) is : 2-9
+#The merged cluster (3) is : 8-10
+#The merged cluster (4) is : 13-19
 
-
-
+ 
